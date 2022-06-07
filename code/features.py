@@ -1,6 +1,7 @@
 import pefile
 import os
 import capstone
+import shutil
 
 api_mapping = {}
 with open('../resources/api.txt') as f:
@@ -52,10 +53,8 @@ def get_api_set_batch(directory_path, to_id=True):
 
 def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MODE_32, to_id=True):
     pe = pefile.PE(file_path)
-    eop = pe.OPTIONAL_HEADER.AddressOfEntryPoint
-    code_section = pe.get_section_by_rva(eop)
-    code_dump = code_section.get_data()
-    code_addr = pe.OPTIONAL_HEADER.ImageBase + code_section.VirtualAddress
+    # eop = pe.OPTIONAL_HEADER.AddressOfEntryPoint
+    # code_addr = pe.OPTIONAL_HEADER.ImageBase + code_section.VirtualAddress
     api_address = {}
     cnt = 0
     for dll in pe.DIRECTORY_ENTRY_IMPORT:
@@ -63,11 +62,11 @@ def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MO
             try:
                 addr, name = hex(imp.address), str(imp.name, encoding='utf-8')
                 api_address[addr], api_address[name] = name, addr
+                # print(name, addr)
                 cnt += 1
             except Exception as e:
                 pass
-    print(cnt)
-
+    # print(cnt)
     md = capstone.Cs(arch, mode)
     md.detail = True
     md.skipdata = True
@@ -75,21 +74,23 @@ def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MO
 
     api_call_seq = []
 
-    for i in md.disasm(code_dump, code_section.VirtualAddress):
-        # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+    for section in pe.sections:
+        for i in md.disasm(section.get_data(), section.VirtualAddress):
+            # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
-        if i.mnemonic == 'call':
-            split = i.op_str.split(' ')
-            if len(split) == 1:
-                address = split[0]
-            elif len(split) == 3:
-                address = split[-1][1:-1]
-            else:
-                address = ''
-            if address in api_address:
-                name = api_address[address]
-                if name in api_mapping:
-                    api_call_seq.append(api_mapping[name] if to_id else name)
+            if i.mnemonic in ('call', 'jmp'):
+                # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+                split = i.op_str.split(' ')
+                if len(split) == 1:
+                    address = split[0]
+                elif len(split) == 3:
+                    address = split[-1][1:-1]
+                else:
+                    address = ''
+                if address in api_address:
+                    name = api_address[address]
+                    if name in api_mapping:
+                        api_call_seq.append(api_mapping[name] if to_id else name)
 
     return api_call_seq
 
@@ -100,14 +101,18 @@ def get_api_seq_batch(directory_path):
     api_call_seqs = []
     for index, file in enumerate(file_ls):
         try:
-            api_call_seq = get_api_seq_single(os.path.join(directory_path, file))
+            api_call_seq = get_api_seq_single(os.path.join(directory_path, file), to_id=True)
             if len(api_call_seq) > 0:
                 api_call_seqs.append(api_call_seq)
-                print(index)
+            else:
+                print(file)
         except Exception as e:
             print(file)
 
     return api_call_seqs
+
+
+def get_byte_stream_single()
 
 
 def write_feature(lists, directory_path, file_name, append=False):
@@ -121,9 +126,27 @@ def write_feature(lists, directory_path, file_name, append=False):
 if __name__ == '__main__':
     # for test
     demo_file_path = r'D:\actProject\files\unpack\malicious\test' \
-                r'\4810283ba180366087af09329069f8767ba2a4e57fadfb31bab8827d4f90c6cd '
-    path = r'D:\actProject\files\unpack\malicious\test'
+                r'\0421df2f603ce755ccef222281eca5de0cf804e42576204033d30dbf1006049e '
+    path = r'C:/users/shini/desktop/malware'
 
-    # get_disassemble(demo_file_path)
-    single = get_api_seq_single(demo_file_path, to_id=False)
-    print('\n'.join(single))
+
+    # single = get_api_seq_single(demo_file_path, to_id=False)
+    # print('\n'.join(single))
+
+    get_api_seq_batch(path)
+
+    # f = open('C:/users/shini/desktop/result.txt', encoding='utf-8')
+    # s = f.read()
+    # f.close()
+    # files = s.split('D:/actProject/files/unpack/malicious/train/')
+    # files = files[1:]
+    # for file in files:
+    #     ms = file.split('\n')
+    #     name = ms[0][:ms[0].find(' ')]
+    #     _type = ms[1]
+    #     if '打包工具' in file or '保护器' in file or _type != 'PE32':
+    #         continue
+    #
+    #     src = os.path.join('D:/actProject/files/unpack/malicious/train/', name)
+    #     dst = os.path.join('C:/users/shini/desktop/malware', name)
+    #     shutil.copy(src, dst)
