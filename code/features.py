@@ -2,16 +2,10 @@ import pefile
 import os
 import capstone
 import shutil
-
-api_mapping = {}
-with open('../resources/api.txt') as f:
-    for idx, api_name in enumerate(f.readlines()):
-        api_name = api_name.strip()
-        api_mapping[api_name] = idx + 1  # index 0 reserves for padding
-        api_mapping[str(idx + 1)] = api_name
+from constant import BYTE_STREAM_LENGTH, api_mapping
 
 
-def get_api_set_single(file_path, to_id: 'list api with name or id' = True):
+def get_api_set_single(file_path, to_id=True):
     try:
         pe = pefile.PE(file_path)
     except Exception:
@@ -79,7 +73,6 @@ def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MO
             # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
             if i.mnemonic in ('call', 'jmp'):
-                # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
                 split = i.op_str.split(' ')
                 if len(split) == 1:
                     address = split[0]
@@ -112,14 +105,38 @@ def get_api_seq_batch(directory_path):
     return api_call_seqs
 
 
-def get_byte_stream_single()
+def get_byte_stream_single(file_path):
+    with open(file_path, 'rb') as f:
+        s = f.read(BYTE_STREAM_LENGTH)
+        ls = []
+        for _ in s:
+            ls.append(_ + 1)  # 0作为填充  所以+1
+
+        if len(ls) < BYTE_STREAM_LENGTH:
+            ls += [0 for i in range(BYTE_STREAM_LENGTH - len(ls))]
+        return ls
 
 
-def write_feature(lists, directory_path, file_name, append=False):
+def get_byte_stream_batch(directory_path):
+    byte_streams = []
+    for file in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, file)
+        byte_stream = get_byte_stream_single(file_path)
+        byte_streams.append(byte_stream)
+
+    return byte_streams
+
+
+def get_pack_check_features(file_apth):
+
+
+
+
+def dump_feature(lists, directory_path, file_name, append=False):
     action = 'a' if append else 'w'
     with open(os.path.join(directory_path, file_name), action) as wf:
         for line in lists:
-            wf.write(' '.join(line))
+            wf.write(','.join(line))
             wf.write('\n')
 
 
