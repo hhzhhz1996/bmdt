@@ -1,6 +1,7 @@
 import pefile
 import os
 import capstone
+import math
 import shutil
 from constant import BYTE_STREAM_LENGTH, api_mapping
 
@@ -45,22 +46,20 @@ def get_api_set_batch(directory_path, to_id=True):
     return api_sets
 
 
-def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MODE_32, to_id=True):
+def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, to_id=True):
     pe = pefile.PE(file_path)
-    # eop = pe.OPTIONAL_HEADER.AddressOfEntryPoint
-    # code_addr = pe.OPTIONAL_HEADER.ImageBase + code_section.VirtualAddress
     api_address = {}
-    cnt = 0
     for dll in pe.DIRECTORY_ENTRY_IMPORT:
         for imp in dll.imports:
             try:
                 addr, name = hex(imp.address), str(imp.name, encoding='utf-8')
                 api_address[addr], api_address[name] = name, addr
-                # print(name, addr)
-                cnt += 1
             except Exception as e:
                 pass
-    # print(cnt)
+    if pe.FILE_HEADER.Machine == 332:
+        mode = capstone.CS_MODE_32
+    else:
+        mode = capstone.CS_MODE_64
     md = capstone.Cs(arch, mode)
     md.detail = True
     md.skipdata = True
@@ -71,7 +70,6 @@ def get_api_seq_single(file_path, arch=capstone.CS_ARCH_X86, mode=capstone.CS_MO
     for section in pe.sections:
         for i in md.disasm(section.get_data(), section.VirtualAddress):
             # print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
             if i.mnemonic in ('call', 'jmp'):
                 split = i.op_str.split(' ')
                 if len(split) == 1:
@@ -99,7 +97,7 @@ def get_api_seq_batch(directory_path):
                 api_call_seqs.append(api_call_seq)
             else:
                 print(file)
-        except Exception as e:
+        except Exception:
             print(file)
 
     return api_call_seqs
@@ -113,7 +111,7 @@ def get_byte_stream_single(file_path):
             ls.append(_ + 1)  # 0作为填充  所以+1
 
         if len(ls) < BYTE_STREAM_LENGTH:
-            ls += [0 for i in range(BYTE_STREAM_LENGTH - len(ls))]
+            ls += [0 for _ in range(BYTE_STREAM_LENGTH - len(ls))]
         return ls
 
 
@@ -127,9 +125,69 @@ def get_byte_stream_batch(directory_path):
     return byte_streams
 
 
-def get_pack_check_features(file_apth):
+def get_pack_check_features(file_path):
+    pe = pefile.PE(file_path)
+    key_api = ['LoadLibrary', 'GetProcAddress', 'LoadLibraryA', 'LoadLibraryW', 'LoadLibraryEx']
 
+    def get_imports_num():
+        cnt = 0
+        try:
+            for dll in pe.DIRECTORY_ENTRY_IMPORT:
+                for imp in dll.imports:
+                    cnt += 1
+        except:
+            return 0
+        return cnt
 
+    def has_key_api():
+        try:
+            for dll in pe.DIRECTORY_ENTRY_IMPORT:
+                for imp in dll.imports:
+                    if str(imp.name, 'utf-8') in key_api:
+                        return 1
+        except:
+            return 0
+        return 0
+
+    def get_section_entropy():
+        entropy_sections = []
+        for section in pe.sections:
+            entropy_sections.append(section.get_entropy())
+
+        return max(entropy_sections), sum(entropy_sections) / len(entropy_sections)
+
+    def get_section_size():
+        ratios = []
+        for section in pe.sections:
+            if section.Misc_VirtualSize == 0:
+                continue
+            ratios.append(section.SizeOfRawData / section.Misc_VirtualSize)
+
+        return min(ratios), sum(ratios) / len(ratios)
+
+    def get_entropy():
+        frequency = [0 for _ in range(256)]
+        entropy = 0
+        data = open(file_path, 'rb').read()
+        for byte in data:
+            frequency[byte] += 1
+
+        for k in range(256):
+            p = frequency[k] / len(data)
+            if p == 0.0:
+                entropy += 0
+            else:
+                entropy += -1 * p * math.log2(p)
+
+        return frequency[0] / len(data), entropy
+
+    min_ratio, avg_ratio = get_section_size()
+    max_entropy, avg_entropy = get_section_entropy()
+    zero_frequency, entire_entropy = get_entropy()
+
+    feature = [get_imports_num(), has_key_api(), avg_ratio, min_ratio,
+               max_entropy, avg_entropy, entire_entropy, zero_frequency]
+    return feature
 
 
 def dump_feature(lists, directory_path, file_name, append=False):
@@ -141,29 +199,9 @@ def dump_feature(lists, directory_path, file_name, append=False):
 
 
 if __name__ == '__main__':
-    # for test
+
     demo_file_path = r'D:\actProject\files\unpack\malicious\test' \
                 r'\0421df2f603ce755ccef222281eca5de0cf804e42576204033d30dbf1006049e '
-    path = r'C:/users/shini/desktop/malware'
-
-
-    # single = get_api_seq_single(demo_file_path, to_id=False)
-    # print('\n'.join(single))
+    path = r'C:/users/shini/desktop/benign'
 
     get_api_seq_batch(path)
-
-    # f = open('C:/users/shini/desktop/result.txt', encoding='utf-8')
-    # s = f.read()
-    # f.close()
-    # files = s.split('D:/actProject/files/unpack/malicious/train/')
-    # files = files[1:]
-    # for file in files:
-    #     ms = file.split('\n')
-    #     name = ms[0][:ms[0].find(' ')]
-    #     _type = ms[1]
-    #     if '打包工具' in file or '保护器' in file or _type != 'PE32':
-    #         continue
-    #
-    #     src = os.path.join('D:/actProject/files/unpack/malicious/train/', name)
-    #     dst = os.path.join('C:/users/shini/desktop/malware', name)
-    #     shutil.copy(src, dst)

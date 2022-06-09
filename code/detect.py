@@ -7,13 +7,11 @@ from constant import rnn as api_model
 from constant import shell_detect_model
 
 
-def shell_detect(file_path, pe):
-    feature = get_feature_shell(file_path, pe)
-
+def shell_detect(file_path):
+    feature = get_pack_check_features(file_path)
     array = np.array(feature).reshape(1, -1)
     result = shell_detect_model.predict_proba(array)
-
-    return result, feature
+    return result
 
 
 def api_detect(file_path):
@@ -30,3 +28,9 @@ def byte_stream_detect(file_path):
     array = array.unsqueeze(0)
     result = byte_stream_model.forward(array)
     return result
+
+
+def detect(file_path):
+    p_packed = shell_detect(file_path)
+    p_unpack = 1 - p_packed
+    return p_packed * byte_stream_detect(file_path) + p_unpack * api_detect(file_path)
