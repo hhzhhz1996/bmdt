@@ -100,7 +100,6 @@ def get_api_seq_batch(directory_path):
                 os.remove(os.path.join('C:/users/shini/desktop/benign', file))
         except Exception:
             print(file)
-            os.remove(os.path.join('C:/users/shini/desktop/benign', file))
 
     return api_call_seqs
 
