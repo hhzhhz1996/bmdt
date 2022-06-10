@@ -10,7 +10,7 @@ class GateCNN(nn.Module):
         self.params = params
         self.emb = nn.Embedding(257, embedding_size, padding_idx=0)
         self.sigmoid = nn.Sigmoid()
-        self.bn = nn.BatchNorm1d(embedding_size)
+        self.bn1 = nn.BatchNorm1d(embedding_size)
         self.conv1_1 = nn.Conv1d(embedding_size, core_nums, kernel_size=(512,), stride=(512,))
         self.conv1_2 = nn.Conv1d(embedding_size, core_nums, kernel_size=(512,), stride=(512,))
         self.conv2_1 = nn.Conv1d(embedding_size, core_nums, kernel_size=(1024,), stride=(512,))
@@ -27,8 +27,8 @@ class GateCNN(nn.Module):
     def forward(self, x):
         # x shape   batch_size * 2M
         x_embed = self.emb(x)  # batch_size * 2M * 8
-        x_embed = x_embed.permute(0, 2, 1)  # batch_size * 8 * 2M
-        x_embed = self.bn(x_embed)
+        x_embed = x_embed.permute(0, 2, 1)  # batch_size * 8 * 2M   
+        x_embed = self.bn1(x_embed)
         c1 = self.sigmoid(self.conv1_1(x_embed)) * self.conv1_2(x_embed)  # batch_size * 128 * 4096
         c2 = self.sigmoid(self.conv2_1(x_embed)) * self.conv2_2(x_embed)  # batch_size * 128 * 4095
         out1 = torch.max(c1, -1)[0]

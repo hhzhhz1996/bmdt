@@ -97,8 +97,10 @@ def get_api_seq_batch(directory_path):
                 api_call_seqs.append(api_call_seq)
             else:
                 print(file)
+                os.remove(os.path.join('C:/users/shini/desktop/benign', file))
         except Exception:
             print(file)
+            os.remove(os.path.join('C:/users/shini/desktop/benign', file))
 
     return api_call_seqs
 
@@ -205,3 +207,10 @@ if __name__ == '__main__':
     path = r'C:/users/shini/desktop/benign'
 
     get_api_seq_batch(path)
+
+    # f = open('C:/users/shini/desktop/要删除的.txt')
+    #
+    # for file in f.readlines():
+    #     file = file.strip()
+    #     path = os.path.join('C:/users/shini/desktop/benign', file)
+    #     os.remove(path)
