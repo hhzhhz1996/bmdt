@@ -3,13 +3,6 @@ import torch
 from model import GateCNN, LstmAttention
 
 BYTE_STREAM_LENGTH = 2 * 1024 * 1024
-model_directory = ''
-device = 'cpu'  # cuda or cpu
-
-voc_size = 16975
-emb_size = 64
-padding_index = 0
-hidden_size = 64
 
 api_mapping = {}
 with open('../resources/api.txt') as f:
