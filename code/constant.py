@@ -14,6 +14,11 @@ with open('../resources/api.txt') as f:
 
 shell_detect_model = joblib.load('../resources/RF.model')
 
+device = 'cpu'  # or cuda
+voc_size = 16975
+emb_size = 64
+padding_index = 0
+hidden_size = 64
 cnn = GateCNN().to(device)
 state = torch.load('../resources/CNN.model', map_location=torch.device(device))
 cnn.load_state_dict(state['state_dict'])

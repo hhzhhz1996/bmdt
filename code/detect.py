@@ -20,8 +20,8 @@ def api_detect(file_path):
     feature = get_api_seq_single(file_path, to_id=True)
     array = torch.tensor(feature)
     array = array.unsqueeze(0)
-    result = api_model(array)
-    return result
+    result = api_model().forward(array)
+    return result.squeeze(0).item()
 
 
 def byte_stream_detect(file_path):
@@ -29,13 +29,13 @@ def byte_stream_detect(file_path):
     array = torch.tensor(feature)
     array = array.unsqueeze(0)
     result = byte_stream_model.forward(array)
-    return result
+    return result.squeeze(0).item()
 
 
 def detect(file_path):
     p_unpack, p_packed = shell_detect(file_path)
-    p_api = api_detect(file_path).item()
-    p_bytes = byte_stream_detect(file_path).item()
+    p_api = api_detect(file_path)
+    p_bytes = byte_stream_detect(file_path)
     return p_unpack * p_api + p_packed * p_bytes
 
 
